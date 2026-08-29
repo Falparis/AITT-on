@@ -1,0 +1,310 @@
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const User = require('../models/User');
+const RefreshToken = require('../models/RefreshToken');
+const ApiKey = require('../models/ApiKey');
+const { hashPassword, verifyPassword, generateRandomToken } = require('../utils/crypto');
+const logger = require('../utils/logger');
+const AppError = require('../utils/AppError');
+
+const ACCESS_TTL = process.env.JWT_ACCESS_TTL || '15m';
+const REFRESH_TTL_MS = (() => {
+  const ttl = process.env.JWT_REFRESH_TTL || '60d';
+  if (ttl.endsWith('d')) return parseInt(ttl) * 24 * 60 * 60 * 1000;
+  if (ttl.endsWith('h')) return parseInt(ttl) * 60 * 60 * 1000;
+  return 60 * 24 * 60 * 60 * 1000;
+})();
+
+// IMPORT-SAFE: read + validate the JWT secret lazily on first use instead of at
+// module load, so requiring this service (e.g. via routes/index in tests) no
+// longer throws before env is configured. Same pattern as soroban.service.
+function getAccessSecret() {
+  const secret = process.env.JWT_ACCESS_SECRET;
+  if (!secret) throw new AppError(500, 'JWT_ACCESS_SECRET must be set in .env');
+  return secret;
+}
+
+/**
+ * Register a new user
+ */
+const mongoose = require('mongoose');
+const companyService = require('./company.service');
+const regulatorService = require('./regulator.service');
+
+async function registerUser({ email, password, role, companyId = null, company = null, regulatorId = null, regulator = null }) {
+  const session = await mongoose.startSession();
+
+  try {
+    const passwordHash = password ? await hashPassword(password) : null;
+
+    if (!email || !role) {
+      throw new AppError(400, 'email and role are required');
+    }
+    // === Super Admin Bootstrapping ===
+    if (role === 'super_admin') {
+      // ⚠️ TEMPORARY: Allow direct super_admin creation for bootstrapping
+      const existingSuper = await User.findOne({ role: 'super_admin' });
+      if (existingSuper) {
+        logger.warn('Super admin already exists; additional creation is discouraged', { email });
+        throw new AppError(400, 'Only one super_admin allowed ');
+
+      }
+      const user = await User.create({ email, passwordHash, role: 'super_admin' });
+      logger.info('Super admin registered (bootstrap)', { userId: user._id, email });
+      return user;
+    }
+    // === Company Admin Flow ===
+    if (role === 'company_admin') {
+      await session.startTransaction();
+      try {
+        let companyToUseId = companyId;
+
+        if (companyId) {
+          const comp = await companyService.getCompanyById(companyId);
+          if (!comp) throw new AppError(404, 'Provided companyId not found');
+        } else {
+          if (!company || !company.name) {
+            throw new AppError(400, 'company data (name) required when companyId not provided');
+          }
+          const createdCompany = await companyService.createCompany(company, { session });
+          companyToUseId = createdCompany._id;
+        }
+
+        const user = await User.create([{ email, passwordHash, role, companyId: companyToUseId }], { session });
+        await session.commitTransaction();
+        logger.info('Company admin registered', { userId: user[0]._id, companyId: companyToUseId });
+        return user[0];
+      } catch (err) {
+        await session.abortTransaction();
+        throw err;
+      } finally {
+        session.endSession();
+      }
+    }
+
+    // === Regulator Admin Flow ===
+    if (role === 'regulator_admin') {
+      await session.startTransaction();
+      try {
+        let regulatorToUseId = regulatorId;
+
+        if (regulatorId) {
+          const reg = await regulatorService.getRegulatorById(regulatorId);
+          if (!reg) throw new AppError(404, 'Provided regulatorId not found');
+        } else {
+          if (!regulator || !regulator.name) {
+            throw new AppError(400, 'regulator data (name) required when regulatorId not provided');
+          }
+          const createdReg = await regulatorService.createRegulator(regulator, { session });
+          regulatorToUseId = createdReg._id;
+        }
+
+        const user = await User.create([{ email, passwordHash, role, regulatorId: regulatorToUseId }], { session });
+        await session.commitTransaction();
+        logger.info('Regulator admin registered', { userId: user[0]._id, regulatorId: regulatorToUseId });
+        return user[0];
+      } catch (err) {
+        await session.abortTransaction();
+        throw err;
+      } finally {
+        session.endSession();
+      }
+    }
+
+    // === Other Roles (super_admin, viewer, etc.) ===
+    const user = await User.create({ email, passwordHash, role });
+    logger.info('User registered (no org)', { userId: user._id, role: user.role });
+    return user;
+
+  } catch (err) {
+    logger.error('User registration failed', { email, error: err.message });
+    throw new AppError(500, 'Failed to register user', err.message);
+  }
+}
+
+
+
+/**
+ * Sign an access token
+ */
+function signAccessToken(user) {
+  const payload = {
+    sub: user._id.toString(),
+    role: user.role,
+    companyId: user.companyId || null,
+    regulatorId: user.regulatorId || null,
+  };
+  return jwt.sign(payload, getAccessSecret(), { expiresIn: ACCESS_TTL });
+}
+
+/**
+ * Issue a refresh token
+ */
+async function issueRefreshToken(user, ctx = {}) {
+  try {
+    // Split token: `selector.verifier`. selector = O(1) lookup key (stored
+    // plaintext, indexed); verifier = the secret (only bcrypt(verifier) stored).
+    const selector = generateRandomToken(16);
+    const verifier = generateRandomToken(48);
+    const tokenHash = await hashPassword(verifier);
+
+    const doc = await RefreshToken.create({
+      userId: user._id,
+      selector,
+      tokenHash,
+      userAgent: ctx.ua,
+      ip: ctx.ip,
+      expiresAt: new Date(Date.now() + REFRESH_TTL_MS),
+    });
+
+    logger.debug('Refresh token issued', { userId: user._id, refreshId: doc._id });
+    return `${selector}.${verifier}`;
+  } catch (err) {
+    logger.error('Failed to issue refresh token', { userId: user._id, err: err.message });
+    throw new AppError(500, 'Failed to issue refresh token', err.message);
+  }
+}
+
+/**
+ * User login
+ */
+async function login({ email, password, ip, ua }) {
+  try {
+    // Reject non-string credentials (audit #8: NoSQL operator injection).
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      throw new AppError(400, 'email and password must be strings');
+    }
+
+    const user = await User.findOne({ email, isActive: true });
+    if (!user) throw new AppError(401, 'Invalid credentials');
+    if (!user.passwordHash) throw new AppError(401, 'No password set for this user');
+
+    // Account lockout (audit #5): block while locked.
+    if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+      throw new AppError(429, 'Account temporarily locked due to repeated failed logins. Try again later.');
+    }
+
+    const ok = await verifyPassword(password, user.passwordHash);
+    if (!ok) {
+      // Count the failure and lock after a threshold. Defensive save() guard so
+      // unit-test mocks without a save() stay green.
+      const max = Number(process.env.LOGIN_LOCKOUT_THRESHOLD || 5);
+      const lockMs = Number(process.env.LOGIN_LOCKOUT_MS || 15 * 60 * 1000);
+      user.failedLoginCount = (user.failedLoginCount || 0) + 1;
+      if (user.failedLoginCount >= max) user.lockedUntil = new Date(Date.now() + lockMs);
+      if (typeof user.save === 'function') await user.save();
+      throw new AppError(401, 'Invalid credentials');
+    }
+
+    // Success: clear the failure counter.
+    user.failedLoginCount = 0;
+    user.lockedUntil = null;
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    const access = signAccessToken(user);
+    const refresh = await issueRefreshToken(user, { ip, ua });
+
+    logger.info('User logged in', { userId: user._id, email, ip });
+    return { access, refresh, role: user.role };
+  } catch (err) {
+    logger.error('Login failed', { email, err: err.message });
+    throw err instanceof AppError ? err : new AppError(500, 'Login failed', err.message);
+  }
+}
+
+/**
+ * Refresh token flow
+ */
+async function refresh({ refreshTokenRaw }) {
+  try {
+    if (typeof refreshTokenRaw !== 'string' || !refreshTokenRaw.includes('.')) {
+      throw new AppError(401, 'Invalid refresh token');
+    }
+    const dot = refreshTokenRaw.indexOf('.');
+    const selector = refreshTokenRaw.slice(0, dot);
+    const verifier = refreshTokenRaw.slice(dot + 1);
+    if (!selector || !verifier) throw new AppError(401, 'Invalid refresh token');
+
+    // O(1) lookup by selector, then a SINGLE bcrypt compare of the verifier
+    // (E-audit H3 — no more O(n) scan / 200-token cliff).
+    const token = await RefreshToken.findOne({ selector });
+    if (!token) throw new AppError(401, 'Invalid refresh token');
+
+    const match = await bcrypt.compare(verifier, token.tokenHash);
+    if (!match) throw new AppError(401, 'Invalid refresh token');
+
+    // REUSE DETECTION (D13): a matching but ALREADY-REVOKED token is a replay of
+    // a rotated (single-use) token — a strong signal of theft. Revoke the whole
+    // family (all the user's active sessions) and reject.
+    if (token.revokedAt) {
+      logger.error('Refresh token REUSE detected — revoking all sessions for user', { userId: String(token.userId) });
+      await RefreshToken.updateMany({ userId: token.userId, revokedAt: null }, { $set: { revokedAt: new Date() } });
+      throw new AppError(401, 'Refresh token reuse detected; all sessions have been revoked');
+    }
+
+    if (token.expiresAt && token.expiresAt < new Date()) {
+      throw new AppError(401, 'Refresh token expired');
+    }
+
+    // Rotate: revoke the presented token, issue a fresh one.
+    token.revokedAt = new Date();
+    await token.save();
+
+    const user = await User.findById(token.userId);
+    if (!user) throw new AppError(404, 'User not found for refresh token');
+
+    const access = signAccessToken(user);
+    const newRefresh = await issueRefreshToken(user);
+
+    logger.info('Refresh token exchanged', { userId: user._id, refreshId: token._id });
+    return { access, refresh: newRefresh };
+  } catch (err) {
+    logger.error('Refresh token failed', { err: err.message });
+    throw err instanceof AppError ? err : new AppError(500, 'Refresh token failed', err.message);
+  }
+}
+
+/**
+ * Exchange API key for access token
+ */
+async function exchangeApiKey(rawKey) {
+  try {
+    if (!rawKey) throw new AppError(401, 'Missing API key');
+
+    const prefix = rawKey.slice(0, 8);
+    const record = await ApiKey.findOne({ prefix, isActive: true });
+    if (!record) throw new AppError(401, 'Invalid API key');
+
+    const ok = await bcrypt.compare(rawKey, record.hash);
+    if (!ok) throw new AppError(401, 'Invalid API key');
+
+    const user = {
+      _id: `${record.ownerType}:${record.ownerId}`,
+      role: record.ownerType === 'company' ? 'company_admin' : 'regulator_admin',
+      companyId: record.ownerType === 'company' ? record.ownerId : null,
+      regulatorId: record.ownerType === 'regulator' ? record.ownerId : null,
+    };
+
+    const access = jwt.sign(
+      { sub: user._id, role: user.role, companyId: user.companyId, regulatorId: user.regulatorId },
+      getAccessSecret(),
+      { expiresIn: ACCESS_TTL }
+    );
+
+    logger.info('API key exchanged for token', { ownerType: record.ownerType, ownerId: record.ownerId });
+    return { access, scopes: record.scopes || [] };
+  } catch (err) {
+    logger.error('API key exchange failed', { err: err.message });
+    throw err instanceof AppError ? err : new AppError(500, 'API key exchange failed', err.message);
+  }
+}
+
+module.exports = {
+  registerUser,
+  login,
+  refresh,
+  signAccessToken,
+  issueRefreshToken,
+  exchangeApiKey,
+};
