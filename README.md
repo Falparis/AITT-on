@@ -8,7 +8,7 @@ A Stellar/Soroban-powered compliance certification platform that lets companies 
 
 | Resource | URL |
 |----------|-----|
-| Backend | https://soroban-backend.duckdns.org/ |
+| Backend |  https://api.aitt-transparency.com/
 | Frontend | https://aitt-transparency.com/ |
 | Smart Contract | https://stellar.expert/explorer/testnet/contract/CBOCCS4EYS5WV273UJRHBM6QN4NGBV5Y4EGKON3UYBBEQ62LVHV3ZMLS |
 
