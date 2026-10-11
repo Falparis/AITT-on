@@ -22,6 +22,8 @@ enum DataKey {
     Whitelist(Address),
     /// Persistent: sub-admin membership
     SubAdmin(Address),
+    /// Persistent: number of current sub-admins (governance signers)
+    SubAdminCount,
     /// Persistent: document review keyed by (doc_hash, sub_admin)
     DocumentReview(String, Address),
     /// Persistent: governance proposal by ID
@@ -144,6 +146,30 @@ impl Contract {
             .unwrap_or(false)
     }
 
+    fn sub_admin_count_of(env: &Env) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::SubAdminCount)
+            .unwrap_or(0)
+    }
+
+    fn threshold_of(env: &Env) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::GovernanceThreshold)
+            .unwrap_or(1)
+    }
+
+    /// Enforces 1 <= threshold <= number of sub-admins.
+    fn assert_valid_threshold(env: &Env, threshold: u32) {
+        if threshold < 1 {
+            panic!("threshold must be at least 1");
+        }
+        if threshold > Self::sub_admin_count_of(env) {
+            panic!("threshold cannot exceed the number of sub-admins");
+        }
+    }
+
     fn assert_main_admin_or_whitelisted(env: &Env, actor: &Address) {
         actor.require_auth();
         let admin: Address = env
@@ -185,6 +211,9 @@ impl Contract {
                 env.storage().persistent().set(&key, &doc);
             }
             ProposalAction::UpdateThreshold(new_threshold) => {
+                // Re-checked at execution: the sub-admin set may have
+                // changed since the proposal was created.
+                Self::assert_valid_threshold(env, *new_threshold);
                 env.storage()
                     .persistent()
                     .set(&DataKey::GovernanceThreshold, new_threshold);
@@ -205,14 +234,17 @@ impl Contract {
     }
 
     pub fn governance_threshold(env: Env) -> u32 {
-        env.storage()
-            .persistent()
-            .get(&DataKey::GovernanceThreshold)
-            .unwrap_or(1)
+        Self::threshold_of(&env)
+    }
+
+    pub fn sub_admin_count(env: Env) -> u32 {
+        Self::sub_admin_count_of(&env)
     }
 
     // ---- Sub-admin management (main-admin only) ----
 
+    /// Adds a sub-admin. Idempotent: re-adding an existing sub-admin does
+    /// not change the count.
     pub fn add_sub_admin(env: Env, admin: Address, sub_admin: Address) {
         admin.require_auth();
         let stored: Address = env
@@ -223,11 +255,21 @@ impl Contract {
         if admin != stored {
             panic!("only main admin can manage sub-admins");
         }
+        if Self::is_sub_admin(&env, &sub_admin) {
+            return;
+        }
         env.storage()
             .persistent()
             .set(&DataKey::SubAdmin(sub_admin), &true);
+        env.storage()
+            .persistent()
+            .set(&DataKey::SubAdminCount, &(Self::sub_admin_count_of(&env) + 1));
     }
 
+    /// Removes a sub-admin. Idempotent for non-members. If the removal would
+    /// leave fewer sub-admins than the governance threshold, the threshold is
+    /// lowered to the remaining count (minimum 1) so N <= M always holds and
+    /// governance can never deadlock.
     pub fn remove_sub_admin(env: Env, admin: Address, sub_admin: Address) {
         admin.require_auth();
         let stored: Address = env
@@ -238,9 +280,22 @@ impl Contract {
         if admin != stored {
             panic!("only main admin can manage sub-admins");
         }
+        if !Self::is_sub_admin(&env, &sub_admin) {
+            return;
+        }
+        let new_count = Self::sub_admin_count_of(&env) - 1;
         env.storage()
             .persistent()
             .remove(&DataKey::SubAdmin(sub_admin));
+        env.storage()
+            .persistent()
+            .set(&DataKey::SubAdminCount, &new_count);
+        if new_count < Self::threshold_of(&env) {
+            let lowered = if new_count < 1 { 1 } else { new_count };
+            env.storage()
+                .persistent()
+                .set(&DataKey::GovernanceThreshold, &lowered);
+        }
     }
 
     pub fn is_sub_admin_public(env: Env, addr: Address) -> bool {
@@ -259,6 +314,7 @@ impl Contract {
         if admin != stored {
             panic!("only main admin can set threshold");
         }
+        Self::assert_valid_threshold(&env, new_threshold);
         env.storage()
             .persistent()
             .set(&DataKey::GovernanceThreshold, &new_threshold);
@@ -416,6 +472,10 @@ impl Contract {
             .expect("contract not initialized");
         if proposer != main_admin && !Self::is_sub_admin(&env, &proposer) {
             panic!("only main admin or sub-admin can create proposals");
+        }
+        // Reject unreachable thresholds up front (re-checked at execution).
+        if let ProposalAction::UpdateThreshold(new_threshold) = &action {
+            Self::assert_valid_threshold(&env, *new_threshold);
         }
 
         let mut count: u64 = env
@@ -823,14 +883,14 @@ mod tests {
         let client = ContractClient::new(&env, &contract_addr);
         env.mock_all_auths();
 
-        // Set threshold to 2
-        client.set_threshold(&admin, &2u32);
-
         // Add two sub-admins
         let sub1 = Address::generate(&env);
         let sub2 = Address::generate(&env);
         client.add_sub_admin(&admin, &sub1);
         client.add_sub_admin(&admin, &sub2);
+
+        // Set threshold to 2
+        client.set_threshold(&admin, &2u32);
 
         // Whitelisted user uploads a document
         let uploader = Address::generate(&env);
@@ -880,12 +940,12 @@ mod tests {
         let client = ContractClient::new(&env, &contract_addr);
         env.mock_all_auths();
 
-        // Set threshold to 2
-        client.set_threshold(&admin, &2u32);
-
-        // Add only ONE sub-admin
+        // Add two sub-admins and set threshold to 2
         let sub1 = Address::generate(&env);
+        let sub2 = Address::generate(&env);
         client.add_sub_admin(&admin, &sub1);
+        client.add_sub_admin(&admin, &sub2);
+        client.set_threshold(&admin, &2u32);
 
         // Upload a document
         let uploader = Address::generate(&env);
@@ -919,6 +979,8 @@ mod tests {
 
         let sub = Address::generate(&env);
         client.add_sub_admin(&admin, &sub);
+        client.add_sub_admin(&admin, &Address::generate(&env));
+        client.add_sub_admin(&admin, &Address::generate(&env));
 
         // Propose threshold change from 1 to 3
         // Default threshold is 1, so this will auto-execute on first approval
@@ -1050,11 +1112,11 @@ mod tests {
         let client = ContractClient::new(&env, &contract_addr);
         env.mock_all_auths();
 
-        // Set threshold to 1 so a single sub-admin can execute
-        client.set_threshold(&admin, &1u32);
-
         let sub = Address::generate(&env);
         client.add_sub_admin(&admin, &sub);
+
+        // Set threshold to 1 so a single sub-admin can execute
+        client.set_threshold(&admin, &1u32);
 
         let name = String::from_str(&env, "Doc.pdf");
         let hash = make_hash(&env, "doc");
@@ -1092,11 +1154,12 @@ mod tests {
         let client = ContractClient::new(&env, &contract_addr);
         env.mock_all_auths();
 
-        // Set threshold to 2 so 1 approval doesn't auto-execute
-        client.set_threshold(&admin, &2u32);
-
         let sub = Address::generate(&env);
         client.add_sub_admin(&admin, &sub);
+        client.add_sub_admin(&admin, &Address::generate(&env));
+
+        // Set threshold to 2 so 1 approval doesn't auto-execute
+        client.set_threshold(&admin, &2u32);
 
         let wasm_hash = BytesN::from_array(&env, &[0u8; 32]);
         let action = ProposalAction::ContractUpgrade(wasm_hash.clone());
@@ -1118,6 +1181,168 @@ mod tests {
         let after_one = client.read_proposal(&pid).unwrap();
         assert_eq!(after_one.approvals.len(), 1);
         assert!(!after_one.executed);
+    }
+
+    // =======================================================================
+    // Threshold bounds (1 <= N <= number of sub-admins)
+    // =======================================================================
+
+    fn setup_with_sub_admins(env: &Env, n: u32) -> (Address, ContractClient<'_>, Vec<Address>) {
+        let (admin, contract_addr) = setup(env);
+        let client = ContractClient::new(env, &contract_addr);
+        env.mock_all_auths();
+        let mut subs = Vec::new(env);
+        for _ in 0..n {
+            let s = Address::generate(env);
+            client.add_sub_admin(&admin, &s);
+            subs.push_back(s);
+        }
+        (admin, client, subs)
+    }
+
+    #[test]
+    fn sub_admin_count_tracks_add_and_remove() {
+        let env = Env::default();
+        let (admin, client, subs) = setup_with_sub_admins(&env, 3);
+        assert_eq!(client.sub_admin_count(), 3);
+
+        // Re-adding an existing sub-admin does not double count
+        client.add_sub_admin(&admin, &subs.get(0).unwrap());
+        assert_eq!(client.sub_admin_count(), 3);
+
+        client.remove_sub_admin(&admin, &subs.get(0).unwrap());
+        assert_eq!(client.sub_admin_count(), 2);
+
+        // Removing a non-member is a no-op
+        client.remove_sub_admin(&admin, &Address::generate(&env));
+        assert_eq!(client.sub_admin_count(), 2);
+    }
+
+    #[test]
+    fn set_threshold_accepts_bounds() {
+        let env = Env::default();
+        let (admin, client, _subs) = setup_with_sub_admins(&env, 3);
+        client.set_threshold(&admin, &1u32);
+        assert_eq!(client.governance_threshold(), 1);
+        client.set_threshold(&admin, &3u32);
+        assert_eq!(client.governance_threshold(), 3);
+    }
+
+    #[test]
+    #[should_panic(expected = "threshold must be at least 1")]
+    fn set_threshold_zero_panics() {
+        let env = Env::default();
+        let (admin, client, _subs) = setup_with_sub_admins(&env, 2);
+        client.set_threshold(&admin, &0u32);
+    }
+
+    #[test]
+    #[should_panic(expected = "threshold cannot exceed the number of sub-admins")]
+    fn set_threshold_above_sub_admin_count_panics() {
+        let env = Env::default();
+        let (admin, client, _subs) = setup_with_sub_admins(&env, 2);
+        client.set_threshold(&admin, &3u32);
+    }
+
+    #[test]
+    #[should_panic(expected = "threshold cannot exceed the number of sub-admins")]
+    fn set_threshold_with_no_sub_admins_panics() {
+        let env = Env::default();
+        let (admin, client, _subs) = setup_with_sub_admins(&env, 0);
+        client.set_threshold(&admin, &1u32);
+    }
+
+    #[test]
+    fn remove_sub_admin_below_threshold_lowers_threshold() {
+        let env = Env::default();
+        let (admin, client, subs) = setup_with_sub_admins(&env, 3);
+        client.set_threshold(&admin, &3u32);
+
+        client.remove_sub_admin(&admin, &subs.get(0).unwrap());
+        assert_eq!(client.sub_admin_count(), 2);
+        assert_eq!(client.governance_threshold(), 2);
+
+        client.remove_sub_admin(&admin, &subs.get(1).unwrap());
+        assert_eq!(client.sub_admin_count(), 1);
+        assert_eq!(client.governance_threshold(), 1);
+
+        // Removing the last sub-admin keeps the threshold at its minimum of 1
+        client.remove_sub_admin(&admin, &subs.get(2).unwrap());
+        assert_eq!(client.sub_admin_count(), 0);
+        assert_eq!(client.governance_threshold(), 1);
+    }
+
+    #[test]
+    fn remove_sub_admin_above_threshold_keeps_threshold() {
+        let env = Env::default();
+        let (admin, client, subs) = setup_with_sub_admins(&env, 3);
+        client.set_threshold(&admin, &2u32);
+        client.remove_sub_admin(&admin, &subs.get(0).unwrap());
+        assert_eq!(client.governance_threshold(), 2);
+    }
+
+    #[test]
+    fn lowered_threshold_still_lets_remaining_sub_admins_execute() {
+        let env = Env::default();
+        let (admin, client, subs) = setup_with_sub_admins(&env, 2);
+        client.set_threshold(&admin, &2u32);
+
+        let doc_hash = make_hash(&env, "lowered");
+        client.store_document(&admin, &String::from_str(&env, "Doc.pdf"), &doc_hash);
+        client.issue_certificate(&admin, &doc_hash, &2_000_000_000u64);
+
+        // Threshold auto-lowers to 1, so the remaining sub-admin alone can revoke
+        client.remove_sub_admin(&admin, &subs.get(1).unwrap());
+        let remaining = subs.get(0).unwrap();
+        let pid = client.create_proposal(&remaining, &ProposalAction::RevokeCertificate(doc_hash.clone()));
+        client.approve_proposal(&remaining, &pid);
+        assert_eq!(client.read_document(&doc_hash).unwrap().status, CertificateStatus::Revoked);
+    }
+
+    #[test]
+    fn remove_sub_admin_after_lowering_threshold() {
+        let env = Env::default();
+        let (admin, client, subs) = setup_with_sub_admins(&env, 2);
+        client.set_threshold(&admin, &2u32);
+        client.set_threshold(&admin, &1u32);
+        client.remove_sub_admin(&admin, &subs.get(0).unwrap());
+        assert_eq!(client.sub_admin_count(), 1);
+        assert!(!client.is_sub_admin_public(&subs.get(0).unwrap()));
+    }
+
+    #[test]
+    #[should_panic(expected = "threshold cannot exceed the number of sub-admins")]
+    fn create_update_threshold_proposal_above_count_panics() {
+        let env = Env::default();
+        let (_admin, client, subs) = setup_with_sub_admins(&env, 2);
+        client.create_proposal(&subs.get(0).unwrap(), &ProposalAction::UpdateThreshold(3u32));
+    }
+
+    #[test]
+    #[should_panic(expected = "threshold must be at least 1")]
+    fn create_update_threshold_proposal_zero_panics() {
+        let env = Env::default();
+        let (_admin, client, subs) = setup_with_sub_admins(&env, 2);
+        client.create_proposal(&subs.get(0).unwrap(), &ProposalAction::UpdateThreshold(0u32));
+    }
+
+    #[test]
+    fn update_threshold_proposal_rechecked_at_execution() {
+        let env = Env::default();
+        let (admin, client, subs) = setup_with_sub_admins(&env, 3);
+        client.set_threshold(&admin, &2u32);
+
+        // Valid when created: 3 <= 3 sub-admins
+        let pid = client.create_proposal(&subs.get(0).unwrap(), &ProposalAction::UpdateThreshold(3u32));
+
+        // Sub-admin set shrinks to 2 before the proposal executes
+        client.remove_sub_admin(&admin, &subs.get(2).unwrap());
+
+        client.approve_proposal(&subs.get(0).unwrap(), &pid);
+        // Second approval reaches threshold 2 but 3 > 2 sub-admins: rejected
+        assert!(client.try_approve_proposal(&subs.get(1).unwrap(), &pid).is_err());
+        assert_eq!(client.governance_threshold(), 2);
+        assert!(!client.read_proposal(&pid).unwrap().executed);
     }
 
     // =======================================================================
@@ -1237,7 +1462,7 @@ mod tests {
         assert!(!revoked_verify.verified_document);
 
         // Scenario B — UpdateThreshold via multi-sig DAO
-        let update_action = ProposalAction::UpdateThreshold(5u32);
+        let update_action = ProposalAction::UpdateThreshold(3u32);
         let prop_id_2 = client.create_proposal(&sub_b, &update_action);
         assert_eq!(prop_id_2, 2);
 
@@ -1248,7 +1473,7 @@ mod tests {
 
         // sub_a approves — 2/2 => auto-executes
         client.approve_proposal(&sub_a, &prop_id_2);
-        assert_eq!(client.governance_threshold(), 5);
+        assert_eq!(client.governance_threshold(), 3);
         let p2_done = client.read_proposal(&prop_id_2).unwrap();
         assert!(p2_done.executed);
 
