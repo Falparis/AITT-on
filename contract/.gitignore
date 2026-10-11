@@ -1,0 +1,10 @@
+# Build output
+target/
+node_modules/
+
+# Contain account secret keys — never commit
+test-accounts.json
+deployment-result.json
+
+# Local run output
+test-results.json
