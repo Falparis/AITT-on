@@ -113,7 +113,12 @@ impl Contract {
     // ---- Initialization ----
 
     /// One-time init. Sets the main admin and a default threshold of 1.
+    /// Panics if the contract has already been initialized, so the main
+    /// admin can never be reassigned through init.
     pub fn init(env: Env, main_admin: Address) {
+        if env.storage().persistent().has(&DataKey::MainAdmin) {
+            panic!("contract already initialized");
+        }
         env.storage().persistent().set(&DataKey::MainAdmin, &main_admin);
         env.storage()
             .persistent()
@@ -705,6 +710,28 @@ mod tests {
 
         let got = client.main_admin_address();
         assert_eq!(got, new_admin, "main admin should be transferred");
+    }
+
+    #[test]
+    #[should_panic(expected = "contract already initialized")]
+    fn init_twice_panics() {
+        let env = Env::default();
+        let (_admin, contract_addr) = setup(&env);
+        let client = ContractClient::new(&env, &contract_addr);
+
+        let attacker = Address::generate(&env);
+        client.init(&attacker);
+    }
+
+    #[test]
+    fn init_twice_keeps_original_main_admin() {
+        let env = Env::default();
+        let (admin, contract_addr) = setup(&env);
+        let client = ContractClient::new(&env, &contract_addr);
+
+        let attacker = Address::generate(&env);
+        assert!(client.try_init(&attacker).is_err());
+        assert_eq!(client.main_admin_address(), admin);
     }
 
     #[test]
