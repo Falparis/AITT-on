@@ -1,0 +1,90 @@
+{
+  "network": "testnet",
+  "contractId": "CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC",
+  "wasmHash": "f98e917479db7306b64a3866fc97118effc05d62e65fdc478986027141ab5e6e",
+  "mainAdmin": "GAKNE5M3T2OGH6VXEEEM2SWC7S7ZHSECVE2A5VPK7P55PAIVKEH7Z4NA",
+  "subAdmins": [
+    "GBHUKOWZ3H7ELZO7MQBT67YNPKH5V5LJK2K6BQGMOMFEJC7IVTOIV3KC",
+    "GAOWCDBR6VZM54TFERXJA4JFJHLDLFAJNYELDY7IMBXQB5CQCB332TBA",
+    "GC2WDDHOPXLOIJXA5BO4VEA2ANJ5NI2XQSEGV2UEEP5A2MK5ZGH4ZYYQ"
+  ],
+  "company": "GCKRAC3VITUU4QVEXAVNGZRQOQPQWAYHZZYHP4C5BBYD66VRDFWKOISI",
+  "threshold": 2,
+  "subAdminCount": 3,
+  "certificate": {
+    "name": "AITT-Governance-Demo-Certificate.pdf",
+    "hash": "149edefaa4ddd5b412efe1eec2ffae3da5f1784a17ecbcb4239947fae6051e45",
+    "expiry": 1823335222
+  },
+  "proposalId": 1,
+  "checks": {
+    "beforeRevoke": "Issued",
+    "afterFirstApproval": {
+      "executed": false,
+      "certificate": "Issued"
+    },
+    "afterSecondApproval": {
+      "executed": true,
+      "certificate": "Revoked"
+    },
+    "guards": [
+      "init called again by another account",
+      "set_threshold(4) with only 3 sub-admins",
+      "set_threshold(0)"
+    ]
+  },
+  "transactions": [
+    {
+      "label": "Upload WASM",
+      "hash": "479eddd081e9485fbe5b1f7c761de6828371301493fabb49dee112e75f5d7aa4"
+    },
+    {
+      "label": "Deploy contract",
+      "hash": "36c59c30039407665b039ae1e9752e6857eea844825634f12eb31fc725f6bbdf"
+    },
+    {
+      "label": "init (main admin)",
+      "hash": "2730db9e68119ed3ea013223068bdfe6039f58b1ee69225f89aac3d71e6237f3"
+    },
+    {
+      "label": "add_sub_admin (Sub-admin A)",
+      "hash": "65c9c3872ea57be6558dbf2989d8a7ffc3d6535929479c8826f2fcc53103427f"
+    },
+    {
+      "label": "add_sub_admin (Sub-admin B)",
+      "hash": "f9a39d9e1e15bbac8bbd426e095e14ad78ea69188bddec8da70a27cbf974eb6c"
+    },
+    {
+      "label": "add_sub_admin (Sub-admin C)",
+      "hash": "e93e925b7ed22126cce791a8c7a81f7ba3dccd4a0f49557cbcc569fefb5a7c89"
+    },
+    {
+      "label": "set_threshold (N = 2)",
+      "hash": "741c626489b412e123f31f9bf42144239f15a820f3dc8029c883b3702a818d68"
+    },
+    {
+      "label": "whitelist_address (company)",
+      "hash": "776b7aa1d997d049940fd867581074decab0605fc68822c656b1ed38c37f2d6a"
+    },
+    {
+      "label": "store_document (company)",
+      "hash": "76451ea5812196e9f3e303100f529914b6f5325cbfe80ef7c575142cecc20420"
+    },
+    {
+      "label": "issue_certificate",
+      "hash": "fb7cdb2488e5fc3e1802e8595e6b2517515f0f37174fc4d27ad92f1eda8df3f3"
+    },
+    {
+      "label": "create_proposal (RevokeCertificate)",
+      "hash": "b03dde098f4fb79fdb3bd8c7d405b49f959a68746c49ca05f39b6a2a55f17180"
+    },
+    {
+      "label": "approve_proposal (Sub-admin A, 1/2)",
+      "hash": "6da6100b0f74b38427c5412c74bc0e4e8b564fe6950d98d29ff390d5c77e389a"
+    },
+    {
+      "label": "approve_proposal (Sub-admin B, 2/2, auto-executes)",
+      "hash": "a547235c59a05cab98e09b29463aeaa4d00e1aa7d1fc41e535162a4fe6878d5b"
+    }
+  ]
+}

@@ -8,3 +8,6 @@ deployment-result.json
 
 # Local run output
 test-results.json
+
+# Demo run output (keys)
+demo-accounts.json
