@@ -1,7 +1,7 @@
 import * as sdk from "@stellar/stellar-sdk";
 const xdr = sdk.xdr;
 const server = new sdk.rpc.Server("https://soroban-testnet.stellar.org");
-const cid = "CAWUEAIRUAWJLFX7XHYGEKMRB5ROJ3ZX2NLGTVTP5BI6PDAAP6BZ62H5";
+const cid = "CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC";
 const kp = sdk.Keypair.fromSecret(process.env.MAIN_ADMIN_SECRET);
 
 async function sim(func, args) {

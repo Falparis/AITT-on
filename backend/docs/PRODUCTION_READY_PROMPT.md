@@ -17,7 +17,7 @@ live contract** — and to prove it with tests you run again and again until the
 ## Mission (the one sentence)
 
 Ship a fully production-ready backend that talks to the **real** deployed contract
-`CA6KYPPXEUTAP4X6JAEOI37OD2SCKEAUOSV2VN5ICDWCAI4WASFHRSYB` (testnet, protocol 27) — every hardening item
+`CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC` (testnet, protocol 27) — every hardening item
 closed, the real Soroban adapter validated against the live chain, all tests passing repeatedly with zero
 regressions, and a clean end-to-end boot proven.
 

@@ -1,7 +1,7 @@
 // src/services/sorobanAdapter/stub.js
 // ---------------------------------------------------------------------------
 // In-memory stub of the DEPLOYED contract
-// (CA6KYPPXEUTAP4X6JAEOI37OD2SCKEAUOSV2VN5ICDWCAI4WASFHRSYB). It mirrors the
+// (CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC). It mirrors the
 // on-chain rules faithfully so the rest of the backend can be built + tested
 // without a live chain (the brief: "Ship against the stub").
 //

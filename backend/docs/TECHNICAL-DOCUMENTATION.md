@@ -6,7 +6,7 @@ This document groups the entire project flow into three clear sections (Smart Co
 
 ## Contract
 
-**Contract:** https://stellar.expert/explorer/testnet/contract/CBOCCS4EYS5WV273UJRHBM6QN4NGBV5Y4EGKON3UYBBEQ62LVHV3ZMLS
+**Contract:** https://stellar.expert/explorer/testnet/contract/CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC
 
 **Backend URL:** https://soroban-backend.duckdns.org/
 
@@ -32,7 +32,7 @@ This document groups the entire project flow into three clear sections (Smart Co
 
 ### Deployment Artifacts
 - WASM hash: `e836409658d0e6cb88ba8a3665aa0ca4082dad7a53be3fdf9ad1e71774c18e80`
-- Contract ID: `CBOCCS4EYS5WV273UJRHBM6QN4NGBV5Y4EGKON3UYBBEQ62LVHV3ZMLS`
+- Contract ID: `CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC`
 - Deployment tx hash: `06fbcdccee43f3925b6c9a8bae59b4df8718e95137c52e1bf06afebf1f290b16`
 - Reference document: Project spec & Soroban contract details — https://docs.google.com/document/d/14VZCiTyoC6Q8gI3bf4f46YRp7oigrRuNqc-_DGz6Eu8/edit?tab=t.0
 
@@ -199,6 +199,6 @@ Provide registration/login flows, document upload UI, certificate listing, and a
 ## Appendix: Deployment & Artifacts
 
 - WASM hash: `e836409658d0e6cb88ba8a3665aa0ca4082dad7a53be3fdf9ad1e71774c18e80`
-- Contract ID: `CBOCCS4EYS5WV273UJRHBM6QN4NGBV5Y4EGKON3UYBBEQ62LVHV3ZMLS`
+- Contract ID: `CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC`
 - Deployment tx hash: `06fbcdccee43f3925b6c9a8bae59b4df8718e95137c52e1bf06afebf1f290b16`
 - Project doc: Soroban contract & system design — https://docs.google.com/document/d/14VZCiTyoC6Q8gI3bf4f46YRp7oigrRuNqc-_DGz6Eu8/edit?tab=t.0

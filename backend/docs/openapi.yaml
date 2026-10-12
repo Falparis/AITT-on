@@ -7,7 +7,7 @@ info:
     platform. Documents are submitted by companies, reviewed by sub-admins
     (0–100 compliance score + one of four review decisions), certified by the
     Main Admin, and anchored on the deployed Stellar/Soroban contract
-    (CA6KYPPXEUTAP4X6JAEOI37OD2SCKEAUOSV2VN5ICDWCAI4WASFHRSYB). Exceptional
+    (CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC). Exceptional
     actions (revocation, threshold changes, upgrades) go through N-of-M
     multi-sig governance proposals.
 

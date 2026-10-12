@@ -10,9 +10,9 @@
 |-------|-------|
 | Network | Testnet |
 | RPC | https://soroban-testnet.stellar.org |
-| Contract ID | `CA6KYPPXEUTAPa4X6JAEOI37OD2SCKEAUOSV2VN5ICDWCAI4WASFHRSYB` |
+| Contract ID | `CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC` |
 | WASM hash | `0efd4cbe0bff01783c294115580657d9224860c19a1fbd5d40e2f57eac7d545b` |
-| Explorer | https://stellar.expert/explorer/testnet/contract/CA6KYPPXEUTAPa4X6JAEOI37OD2SCKEAUOSV2VN5ICDWCAI4WASFHRSYB |
+| Explorer | https://stellar.expert/explorer/testnet/contract/CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC |
 
 **Certificates Hashed on Stellar:**
 

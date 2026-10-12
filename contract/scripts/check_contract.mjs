@@ -1,7 +1,7 @@
 import * as sdk from "@stellar/stellar-sdk";
 
 const server = new sdk.rpc.Server("https://soroban-testnet.stellar.org");
-const cid = "CA6KYPPXEUTAP4X6JAEOI37OD2SCKEAUOSV2VN5ICDWCAI4WASFHRSYB";
+const cid = "CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC";
 
 try {
   const addr = new sdk.Address(cid);

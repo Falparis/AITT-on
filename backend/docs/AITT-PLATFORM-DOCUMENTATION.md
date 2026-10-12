@@ -6,7 +6,7 @@ A Stellar/Soroban-powered compliance certification platform that lets companies 
 
 ## Contract
 
-**Contract:** https://stellar.expert/explorer/testnet/contract/CA6KYPPXEUTAPa4X6JAEOI37OD2SCKEAUOSV2VN5ICDWCAI4WASFHRSYB
+**Contract:** https://stellar.expert/explorer/testnet/contract/CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC
 
 **Certificates Hashed on Stellar:**
 
@@ -39,7 +39,7 @@ A Stellar/Soroban-powered compliance certification platform that lets companies 
 
 ### Deployment Artifacts
 - WASM hash: `e836409658d0e6cb88ba8a3665aa0ca4082dad7a53be3fdf9ad1e71774c18e80`
-- Contract ID: `CA6KYPPXEUTAPa4X6JAEOI37OD2SCKEAUOSV2VN5ICDWCAI4WASFHRSYB`
+- Contract ID: `CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC`
 - Deployment tx hash: `06fbcdccee43f3925b6c9a8bae59b4df8718e95137c52e1bf06afebf1f290b16`
 - Reference document: Project spec & Soroban contract details — https://docs.google.com/document/d/14VZCiTyoC6Q8gI3bf4f46YRp7oigrRuNqc-_DGz6Eu8/edit?tab=t.0
 
@@ -202,6 +202,6 @@ Provide registration/login flows, document upload UI, certificate listing, and a
 ## Appendix: Deployment & Artifacts
 
 - WASM hash: `e836409658d0e6cb88ba8a3665aa0ca4082dad7a53be3fdf9ad1e71774c18e80`
-- Contract ID: `CA6KYPPXEUTAPa4X6JAEOI37OD2SCKEAUOSV2VN5ICDWCAI4WASFHRSYB`
+- Contract ID: `CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC`
 - Deployment tx hash: `06fbcdccee43f3925b6c9a8bae59b4df8718e95137c52e1bf06afebf1f290b16`
 - Project doc: Soroban contract & system design — https://docs.google.com/document/d/14VZCiTyoC6Q8gI3bf4f46YRp7oigrRuNqc-_DGz6Eu8/edit?tab=t.0

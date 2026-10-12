@@ -2,7 +2,7 @@
 // ---------------------------------------------------------------------------
 // Real adapter — wraps the DEPLOYED contract ABI exactly (NOT our local
 // contract/lib.rs). Method names below match the on-chain contract
-// CA6KYPPXEUTAP4X6JAEOI37OD2SCKEAUOSV2VN5ICDWCAI4WASFHRSYB.
+// CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC.
 //
 // Custodial signing (A2): writes are signed by the service key by default; pass
 // opts.signerSecret to sign as a specific named signer (e.g. a sub-admin for

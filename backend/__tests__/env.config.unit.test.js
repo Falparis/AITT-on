@@ -112,7 +112,7 @@ describe('validateEnv — production guards (audit C2)', () => {
       KEY_ENCRYPTION_SECRET: 'production-key-encryption-secret',
       SOROBAN_ADAPTER: 'real',
       RPC_URL: 'https://soroban-testnet.stellar.org',
-      CONTRACT_ID: 'CA6KYPPXEUTAP4X6JAEOI37OD2SCKEAUOSV2VN5ICDWCAI4WASFHRSYB',
+      CONTRACT_ID: 'CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC',
       SERVICE_SECRET: 'SXXXX',
     });
     const summary = validateEnv();

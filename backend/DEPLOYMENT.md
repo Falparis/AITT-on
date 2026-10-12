@@ -6,7 +6,21 @@ configuration**. Do these in order.
 
 ---
 
-## 1. Contract pointer — FIXED (was pointing at the wrong contract)
+## 1. Contract pointer
+
+**Canonical contract (testnet):**
+`CONTRACT_ID=CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC`
+(WASM hash `f98e917479db7306b64a3866fc97118effc05d62e65fdc478986027141ab5e6e`, main admin
+`GAKNE5M3T2OGH6VXEEEM2SWC7S7ZHSECVE2A5VPK7P55PAIVKEH7Z4NA`). It adds the pre-mainnet
+hardening: `init` cannot be called again, and `1 <= threshold <= number of sub-admins`.
+Deployment and governance transactions: `contract/GOVERNANCE-TESTNET-PROOF.md`.
+
+When switching an existing deployment to this contract, set `CONTRACT_ID`, keep
+`SERVICE_SECRET` as the main-admin key above, then re-approve companies and re-activate
+sub-admins so they are whitelisted / registered on the new contract. Re-run
+`npm run test:live` to re-validate before go-live.
+
+**History:** the contracts below are superseded.
 
 **Finding (verified on testnet, read-only):** the runtime `.env` was configured with
 `CONTRACT_ID=CC4PAMOJ75KHHK75D7XGJ4FDLNE27L674W5CUNRKTH4BMGARXR6QMQU7`, but that is an
@@ -25,10 +39,8 @@ requires. In real mode against it, every review/issue/governance call fails.
 
 **Action taken:** `.env` and `.env.githubActions` were repointed to the validated
 `CA6KYPPX…` and `SERVICE_SECRET` / `OWNER_ADDRESS` aligned to that contract's main
-admin (from `deployment-result.json`). All parity/live testing was done against
-`CA6KYPPX…`. If you intend to deploy a *fresh* contract, deploy the WASM in
-`../stellar_document_verification_system` (or `contract/`) and set `CONTRACT_ID` to the
-new id, then re-run `npm run test:live` to re-validate before go-live.
+admin (from `deployment-result.json`). `CA6KYPPX…` was later replaced by the
+canonical contract above.
 
 ---
 

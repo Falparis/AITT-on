@@ -8,7 +8,7 @@ implementations expose the identical interface:
 | Impl | File | Selected when | Purpose |
 |------|------|---------------|---------|
 | `stub` | `stub.js` | `SOROBAN_ADAPTER=stub` (default) | In-memory mirror of the deployed ABI. Deterministic, no network. Ships for tests/dev. |
-| `real` | `real.js` | `SOROBAN_ADAPTER=real` | Wraps the **deployed** contract `CA6KYPPXEUTAP4X6JAEOI37OD2SCKEAUOSV2VN5ICDWCAI4WASFHRSYB` (testnet, protocol 27). |
+| `real` | `real.js` | `SOROBAN_ADAPTER=real` | Wraps the **deployed** contract `CDQQEMPK3F6ZKURO3CKOUD6GQZ6ZGWOZVENZ4U7BEVFLHDR4MBUN5TJC` (testnet, protocol 27). |
 
 Selection: `getAdapter()` in `index.js` reads `SOROBAN_ADAPTER` (`real` | `stub`; or the
 legacy `USE_SOROBAN_STUB=false` ⇒ real). In `NODE_ENV=production` the app **refuses to
