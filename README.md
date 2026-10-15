@@ -70,25 +70,35 @@ Companies and reviewers **never need a crypto wallet, never hold any crypto, and
 
 ## Project Structure
 
+This repository contains the full source of all three parts: smart contract, backend and frontend.
+
 ```
-├── src/
-│   ├── server.js                  # Entry point
-│   ├── app.js                     # Express app
-│   ├── config/                    # Environment validation
-│   ├── controllers/               # Route handlers
-│   ├── middlewares/                # Auth, audit, rate-limiting
-│   ├── models/                    # Mongoose schemas
-│   ├── routes/                    # API routes (/api/v1)
-│   ├── services/
-│   │   ├── sorobanAdapter/        # Single seam for all chain access
-│   │   ├── document.service.js    # Workflow lifecycle
-│   │   ├── indexer.service.js     # Write-through DB mirroring
-│   │   └── ...
-│   └── utils/                     # Helpers, status maps, serializers
-├── frontend/                      # React SPA
-├── docs/                          # Guides, OpenAPI spec, Postman collections
-├── Technical Documentation.docx   # Full technical document
-└── README.md                      # This file
+├── contract/                        # Soroban smart contract (Rust)
+│   ├── contracts/document_verification_system/src/lib.rs
+│   ├── Cargo.toml / Cargo.lock      # pinned build for a reproducible WASM hash
+│   ├── scripts/                     # deploy + testnet test scripts (Node)
+│   ├── README.md                    # functions, build steps, expected WASM hash
+│   ├── GOVERNANCE.md                # key custody + quorum policy
+│   └── GOVERNANCE-TESTNET-PROOF.md  # multisig governance transactions on testnet
+├── backend/                         # Node.js / Express / MongoDB API (/api/v1)
+│   ├── src/
+│   │   ├── server.js, app.js        # entry point, Express app
+│   │   ├── config/                  # environment validation
+│   │   ├── controllers/, routes/    # route handlers, API routes
+│   │   ├── middlewares/             # auth, audit, rate-limiting
+│   │   ├── models/                  # Mongoose schemas
+│   │   ├── services/
+│   │   │   ├── sorobanAdapter/      # single seam for all chain access (stub / real)
+│   │   │   ├── jobs/                # expiry, treasury balance
+│   │   │   └── ...                  # documents, governance, indexer, outbox
+│   │   └── utils/
+│   ├── __tests__/                   # unit, integration and live tests
+│   ├── docs/                        # API docs, OpenAPI spec, Postman collections
+│   └── Technical Documentation.docx
+├── frontend/                        # React / TypeScript / Vite SPA
+│   └── src/                         # pages, components, API client, hooks
+├── docs/screenshots/                # compliance monitoring screenshots
+└── README.md                        # this file
 ```
 
 ---
@@ -96,15 +106,21 @@ Companies and reviewers **never need a crypto wallet, never hold any crypto, and
 ## Running Locally
 
 ```bash
-# Backend
+# Backend (needs MongoDB)
+cd backend
 cp .env.example .env    # fill in your values
 npm install
 npm run dev             # starts on http://localhost:4000
 
-# Frontend
+# Frontend (proxies /api to the backend)
 cd frontend
 npm install
 npm run dev             # starts on http://localhost:5173
+
+# Smart contract
+cd contract
+cargo test              # unit tests
+stellar contract build  # builds the WASM, prints its hash
 ```
 
 ---
@@ -112,33 +128,47 @@ npm run dev             # starts on http://localhost:5173
 ## Testing
 
 ```bash
+cd backend
 npm test                # unit + integration tests (stub adapter)
-npm run test:live       # live tests against real Soroban contract
+npm run test:live       # live tests against the real Soroban contract
+
+cd contract
+cargo test              # contract unit tests
 ```
 
 ---
 
 ## Documentation
 
-- **Technical Documentation.docx** — full technical document (smart contract, backend, dashboard)
-- **docs/API.md** — API endpoints and security details
-- **docs/openapi.yaml** — OpenAPI 3.0 specification
-- **docs/soroban-adapter-spec.md** — Soroban adapter interface and parity guarantee
-- **docs/guide-*.html** — role-specific user guides (admin, company, expert, public)
+- **contract/README.md** — contract functions, governance rules, build and WASM hash reproduction
+- **contract/GOVERNANCE.md** — who holds the keys, quorum policy
+- **contract/GOVERNANCE-TESTNET-PROOF.md** — multisig governance transactions on testnet
+- **backend/Technical Documentation.docx** — full technical document (smart contract, backend, dashboard)
+- **backend/docs/API.md** — API endpoints and security details
+- **backend/docs/openapi.yaml** — OpenAPI 3.0 specification
+- **backend/docs/soroban-adapter-spec.md** — Soroban adapter interface and parity guarantee
+- **backend/DEPLOYMENT.md** — deployment runbook
+- **docs/screenshots/** — compliance monitoring screens
 
 ---
 
 ## Environment Variables
 
+Backend (`backend/.env`):
+
 | Variable | Purpose |
 |----------|---------|
 | `MONGO_URI` | MongoDB connection string |
 | `JWT_ACCESS_SECRET` | JWT signing secret |
-| `KEY_ENCRYPTION_SECRET` | AES-256-GCM encryption for wallet secrets (production) |
+| `KEY_ENCRYPTION_SECRET` | AES-256-GCM encryption for custodial wallet secrets (required in production) |
 | `SOROBAN_ADAPTER` | `stub` (default) or `real` |
 | `RPC_URL` | Soroban RPC endpoint (required for real adapter) |
 | `CONTRACT_ID` | Deployed contract ID (required for real adapter) |
+| `SERVICE_SECRET` | Main admin key; signs admin actions and pays all fees (required for real adapter) |
+| `SPONSOR_FEES` | `true` — main admin sponsors user accounts and pays every fee |
 | `STORAGE_DRIVER` | `auto` / `disk` / `gridfs` / `memory` |
+
+Frontend: `VITE_API_BASE_URL` (default `/api/v1`), `VITE_USE_MOCK` (`true` runs on built-in demo data).
 
 ---
 
