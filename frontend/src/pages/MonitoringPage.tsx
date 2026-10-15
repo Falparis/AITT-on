@@ -214,7 +214,7 @@ export default function MonitoringPage() {
               <CardTitle className="text-lg">Manual regulatory update</CardTitle>
             </div>
             <CardDescription>
-              Publish a regulatory change as a monitoring alert (demo).
+              Publish a regulatory change as a monitoring alert.
             </CardDescription>
           </CardHeader>
           <CardContent>
